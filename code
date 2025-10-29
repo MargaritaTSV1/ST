@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skytournament</title>
+    
+    <!-- Подключение шрифта PT Serif -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PT Serif', serif;
+            overflow-x: hidden;
+            background: #000000;
+            perspective: 1000px;
+            cursor: crosshair;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Контейнер для космического фона */
+        .cosmic-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            min-height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        /* КОСМИЧЕСКИЙ ФОН */
+        .space-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(ellipse at center, #2a3f5f 0%, #0d0f1a 100%);
+        }
+
+        /* ЗВЁЗДЫ */
+        .stars-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transition: opacity .5s ease;
+        }
+
+        /* СТАТИЧНЫЕ ЗВЁЗДЫ (не двигаются, только мерцают) */
+        .static-star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle linear infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% {
+                opacity: var(--opacity);
+                transform: scale(1);
+            }
+            50% {
+                opacity: calc(var(--opacity) * 1.5);
+                transform: scale(1.15);
+            }
+        }
+
+        /* ЛЕТЯЩИЕ ЗВЁЗДЫ - одинаковая скорость */
+        .flying-star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: flyStar 40s linear infinite;
+        }
+
+        @keyframes flyStar {
+            0% {
+                transform: translate(0, 0) scale(var(--start-scale));
+                opacity: 0;
+            }
+            3% {
+                opacity: var(--opacity);
+            }
+            97% {
+                opacity: var(--opacity);
+            }
+            100% {
+                transform: translate(var(--move-x), var(--move-y)) scale(var(--end-scale));
+                opacity: 0;
+            }
+        }
+
+        /* КОМЕТА РАЗ В МИНУТУ (тусклая, ненавязчивая) */
+        .minute-comet {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6));
+            border-radius: 50%;
+            box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.4);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .minute-comet::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.5),
+                rgba(220, 240, 255, 0.3) 40%,
+                transparent
+            );
+            transform: translateY(-50%);
+            filter: blur(1px);
+        }
+
+        @keyframes cometFly {
+            0% {
+                transform: translate(var(--comet-start-x), var(--comet-start-y)) rotate(-45deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+            }
+            90% {
+                opacity: 0.6;
+            }
+            100% {
+                transform: translate(var(--comet-end-x), var(--comet-end-y)) rotate(-45deg);
+                opacity: 0;
+            }
+        }
+
+        /* БОЛЬШАЯ КОМЕТА ПРИ КЛИКЕ */
+        .big-comet {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle, #ffffff, rgba(255, 255, 255, 0.95));
+            border-radius: 50%;
+            box-shadow: 
+                0 0 25px 6px rgba(255, 255, 255, 1),
+                0 0 50px 10px rgba(150, 200, 255, 0.8);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .big-comet::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 280px;
+            height: 5px;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 1),
+                rgba(220, 240, 255, 0.9) 30%,
+                rgba(180, 220, 255, 0.6) 60%,
+                transparent
+            );
+            transform: translateY(-50%);
+            filter: blur(1px);
+        }
+
+        .big-comet::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 450px;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.7),
+                rgba(180, 220, 255, 0.5) 40%,
+                transparent
+            );
+            transform: translateY(-50%);
+            filter: blur(2px);
+        }
+
+        /* МАЛЕНЬКИЕ МЕТЕОРЫ */
+        .small-meteor {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6);
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .small-meteor::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 1px;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.7),
+                rgba(220, 240, 255, 0.4) 50%,
+                transparent
+            );
+            filter: blur(0.3px);
+        }
+
+        @keyframes meteorFly {
+            0% {
+                transform: translate(var(--meteor-start-x), var(--meteor-start-y)) rotate(-35deg);
+                opacity: 0;
+            }
+            5% {
+                opacity: 0.8;
+            }
+            95% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(var(--meteor-end-x), var(--meteor-end-y)) rotate(-35deg);
+                opacity: 0;
+            }
+        }
+
+        /* СОЗВЕЗДИЯ */
+        .constellation {
+            position: absolute;
+            opacity: 0.85;
+        }
+
+        #constellations {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #nebulas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* SVG созвездий */
+        .constellation{position:absolute;opacity:.95}
+        .constellation-svg{position:absolute;overflow:visible}
+        .constellation-path{
+        stroke:rgba(255,255,255,.45);
+        stroke-width:2;
+        fill:none;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+        vector-effect:non-scaling-stroke;
+        animation:constellationGlow 6s ease-in-out infinite;
+        }
+        .constellation-star-circle{fill:#fff;filter:url(#starGlow)}
+
+
+        @keyframes constellationGlow {
+            0%, 100% {
+                opacity: 0.45;
+            }
+            50% {
+                opacity: 0.9;
+            }
+        }
+
+        @keyframes constellationStarPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.25);
+            }
+        }
+
+        /* ТУМАННОСТИ */
+        .nebula {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.18;
+            animation: nebulaPulse 20s ease-in-out infinite;
+        }
+
+        .nebula-purple {
+            background: radial-gradient(circle, rgba(160, 60, 255, 0.7) 0%, transparent 70%);
+        }
+
+        .nebula-blue {
+            background: radial-gradient(circle, rgba(0, 220, 255, 0.7) 0%, transparent 70%);
+        }
+
+        @keyframes nebulaPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.15;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.3;
+            }
+        }
+
+        /* МЛЕЧНЫЙ ПУТЬ */
+        .milky-way {
+            position: absolute;
+            top: 0;
+            left: -10%;
+            width: 120%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 30% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 50%, rgba(220, 230, 255, 0.05) 0%, transparent 50%);
+            transform: rotate(-15deg);
+            pointer-events: none;
+        }
+
+        /* СЕКЦИЯ ГЕРОЯ */
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            padding: 28px 16px;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            position: relative;
+            z-index: 10;
+            max-width: 100%;
+        }
+
+        .logo-wrapper {
+            position: relative;
+            display: inline-block;
+            filter: drop-shadow(0 0 70px rgba(160, 60, 255, 0.8));
+        }
+
+        .main-logo {
+            max-width: 340px;
+            width: 100%;
+            height: auto;
+            position: relative;
+            z-index: 2;
+            transition: all 0.4s ease;
+        }
+
+        .main-logo:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2) drop-shadow(0 0 90px rgba(160, 60, 255, 1));
+        }
+
+        .title {
+            color: #ffffff;
+            font-size: 62px;
+            font-weight: 700;
+            margin-top: 36px;
+            text-shadow: 
+                0 0 34px rgba(160, 60, 255, 0.95),
+                0 0 68px rgba(160, 60, 255, 0.55);
+            letter-spacing: 4px;
+            animation: none;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 26px;
+            margin-top: 22px;
+            font-weight: 400;
+            text-shadow: 
+                0 0 22px rgba(160, 60, 255, 0.9),
+                0 0 40px rgba(160, 60, 255, 0.5);
+            letter-spacing: 2px;
+            animation: none;
+        }
+
+        .tg-btn{
+        display:inline-flex; align-items:center; gap:12px;
+        margin-top:24px; padding:12px 22px;
+        font-family:'PT Serif', serif; font-size:22px; font-weight:700;
+        color:#eef3ff; text-decoration:none;
+        border:2px solid rgba(245,247,255,.8); border-radius:999px;
+        background:rgba(255,255,255,0);
+        backdrop-filter:saturate(120%) blur(2px);
+        transition:transform .2s ease, border-color .2s ease, background-color .2s ease;
+        }
+        .tg-label{
+        background:linear-gradient(120deg,#ffffff 0%, #cfe6ff 35%, #ffffff 70%, #d7f0ff 100%);
+        background-size:200% 100%;
+        -webkit-background-clip:text; background-clip:text;
+        color:transparent;
+        animation:tgShimmer 3s linear infinite;
+        }
+        @keyframes tgShimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+
+        .tg-btn:hover{ background:rgba(245,247,255,.08); border-color:#fff; transform:translateY(-1px); }
+        .tg-btn:active{ transform:translateY(0); background:rgba(245,247,255,.12); }
+
+        .tg-ic{ width:24px; height:24px; fill:#77C7FF; transition:fill .2s ease, transform .2s ease; }
+        .tg-btn:hover .tg-ic{ fill:#BFE4FF; transform:translateY(-1px); }
+
+        .logo-link{display:inline-block}
+
+        /* Shockwave по экрану */
+        .shockwave{
+            position:fixed; left:0; top:0; width:1px; height:1px; pointer-events:none; z-index:120;
+            transform:translate3d(-50%,-50%,0) scale(.05);
+            border-radius:50%;
+            background:radial-gradient(circle,
+                rgba(255,255,255,.28) 0%,
+                rgba(190,230,255,.18) 18%,
+                rgba(160,60,255,.10) 26%,
+                rgba(160,60,255,.05) 34%,
+                rgba(255,255,255,0) 56%);
+            will-change:transform,opacity;
+            animation:shockwaveExpand 1400ms linear forwards;
+            }
+            @keyframes shockwaveExpand{
+            0%   { transform:translate3d(-50%,-50%,0) scale(.12); opacity:.42; }
+            35%  { transform:translate3d(-50%,-50%,0) scale(6.5); opacity:.28; }
+            70%  { transform:translate3d(-50%,-50%,0) scale(11.5); opacity:.14; }
+            98%  { transform:translate3d(-50%,-50%,0) scale(12.5); opacity:.04; }
+            100% { transform:translate3d(-50%,-50%,0) scale(12.7); opacity:0; }
+            }
+
+        /* Ripple по логотипу */
+        .logo-ripple{
+            position:fixed; left:0; top:0; width:6px; height:6px;
+            border:1.25px solid rgba(160,60,255,.32);
+            border-radius:50%; pointer-events:none; z-index:130;
+            transform:translate3d(-50%,-50%,0) scale(.6);
+            opacity:.5; will-change:transform,opacity;
+            animation:logoRipple 800ms ease-out forwards;
+            }
+            @keyframes logoRipple{
+            to{ transform:translate3d(-50%,-50%,0) scale(14); opacity:0; }
+            }
+
+        /* ==== ОСНОВНОЙ КОНТЕНТ СТРАНИЦЫ ==== */
+        main.page {
+            position: relative;
+            z-index: 5;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        /* Универсальные сетки */
+        .grid-4 {
+            display: grid;
+            gap: 26px;
+            grid-template-columns: repeat(4, minmax(240px, 1fr));
+            margin-bottom: 60px;
+        }
+
+        .grid-2 {
+            display: grid;
+            gap: 22px;
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 60px;
+        }
+
+        .grid-cats {
+            display: grid;
+            gap: 22px;
+            grid-template-columns: repeat(4, minmax(220px, 1fr));
+            margin-top: 12px;
+        }
+
+        /* ==== Fancy cards (4-in-row) ==== */
+        .card-neo {
+            position: relative;
+            border-radius: 22px;
+            padding: 20px 20px 22px;
+            text-align: center;
+            color: #ffffff;
+            border: none;
+            /* more transparent frosted background */
+            background: linear-gradient(180deg, rgba(38,53,86,.08), rgba(38,53,86,.05));
+            backdrop-filter: blur(3px) saturate(115%);
+            -webkit-backdrop-filter: blur(3px) saturate(115%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 168px;
+            transition: none;
+            /* purple glow around the card like logo */
+            box-shadow: 0 0 40px rgba(160, 60, 255, 0.6), 0 0 80px rgba(160, 60, 255, 0.3);
+        }
+        /* Gradient border using pseudo-elements */
+        .card-neo::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            border: 2px solid transparent;
+            background: linear-gradient(45deg, #ffffd5, #ffcb67, #ffb413) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            z-index: -1;
+        }
+
+        .card-neo .corner {
+            display: none;
+        }
+
+        .card-neo .c1,
+        .card-neo .c2,
+        .card-neo .c3,
+        .card-neo .c4 {
+            display: none;
+        }
+
+        .card-neo .title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            margin: 2px 0 8px 0;
+            color: #eef1ff;
+            /* purple glow akin to logo */
+            text-shadow: 0 0 24px rgba(160,60,255,.88), 0 0 48px rgba(160,60,255,.52);
+            width: 100%;
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+
+        .card-neo .date {
+            font-size: 22px;
+            font-weight: 500;
+            margin-top: 8px;
+            line-height: 1.15;
+            color: #edf0ff;
+            /* softer purple glow */
+            text-shadow: 0 0 18px rgba(160,60,255,.6), 0 0 36px rgba(160,60,255,.35);
+            opacity: 0.96;
+            width: 100%;
+            word-wrap: break-word;
+        }
+
+        /* Центрирование для ссылочных карточек */
+        .card-neo .card-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-decoration: none;
+            color: inherit;
+            text-align: center;
+        }
+
+        .badge {
+            display: none;
+        }
+
+        .badge--cyan {
+            display: none;
+        }
+
+        /* Per-card tint to better match background */
+        .grid-4 > .card-neo:nth-child(1),
+        .grid-4 > .card-neo:nth-child(4){
+            background: linear-gradient(180deg, rgba(34,47,68,.08), rgba(34,47,68,.05)); /* #222f44 */
+        }
+        .grid-4 > .card-neo:nth-child(2),
+        .grid-4 > .card-neo:nth-child(3){
+            background: linear-gradient(180deg, rgba(41,57,84,.08), rgba(41,57,84,.05)); /* #293954 */
+        }
+
+
+        /* Переливание букв при наведении */
+        .shimmer-hover {
+            color: #ffffff;
+        }
+
+        /* Панели без «неона» — для текстовых секций */
+        .panel {
+            border-radius: 18px;
+            border: 2px solid #ffffff;
+            background: transparent;
+            padding: 24px;
+            color: #ffffff;
+        }
+
+        .panel h3 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #ffffff;
+            text-shadow: 
+                0 0 20px rgba(160, 60, 255, 0.8),
+                0 0 40px rgba(255, 215, 0, 0.6);
+        }
+
+        .panel p {
+            font-size: 17px;
+            line-height: 1.5;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        .panel p:last-child {
+            margin-bottom: 0;
+        }
+
+        .panel a {
+            color: #ffd700;
+            text-decoration: underline;
+        }
+
+        .panel a:hover {
+            color: #ffffff;
+        }
+
+        /* карточки "When" */
+        .infocard {
+            border-radius: 18px;
+            border: 2px solid #ffffff;
+            background: transparent;
+            padding: 24px;
+            color: #ffffff;
+        }
+
+        .infocard h4 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            text-shadow: 
+                0 0 20px rgba(160, 60, 255, 0.8),
+                0 0 40px rgba(255, 215, 0, 0.6);
+        }
+
+        .chip {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #ffd700;
+            background: transparent;
+            margin-bottom: 12px;
+            color: #ffd700;
+        }
+
+        .date-strong {
+            font-weight: 800;
+            text-shadow: 
+                0 0 20px rgba(160, 60, 255, 0.8),
+                0 0 40px rgba(255, 215, 0, 0.6);
+        }
+
+        /* списки */
+        .ul-clean {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .ul-clean li {
+            margin: 8px 0;
+            font-size: 16px;
+            line-height: 1.4;
+            color: #ffffff;
+        }
+
+        /* Секции с заголовком */
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 24px;
+            text-align: center;
+            text-shadow: 
+                0 0 20px rgba(160, 60, 255, 0.8),
+                0 0 40px rgba(255, 215, 0, 0.6);
+        }
+
+        /* Адаптивность */
+        @media screen and (max-width: 1100px) {
+            .grid-4 {
+                grid-template-columns: repeat(2, minmax(240px, 1fr));
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .grid-cats {
+                grid-template-columns: repeat(2, minmax(220px, 1fr));
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            .main-logo {
+                max-width: 320px;
+            }
+
+            .title {
+                font-size: 48px;
+            }
+
+            .subtitle {
+                font-size: 22px;
+            }
+
+            .card-neo .title {
+                font-size: 22px;
+            }
+
+            .card-neo .date {
+                font-size: 26px;
+            }
+        }
+
+        @media screen and (max-width: 620px) {
+            .grid-4,
+            .grid-cats {
+                grid-template-columns: 1fr;
+            }
+
+            .card-neo {
+                padding: 18px 18px 24px;
+                min-height: 160px;
+            }
+        }
+
+        /* Clean heading style inspired by main title */
+        .h-title {
+            color: #ffffff;
+            font-size: 46px;
+            font-weight: 900;
+            line-height: 1.1;
+            margin: 54px 0 16px;
+            text-shadow:
+                0 0 30px rgba(160,60,255,1),
+                0 0 50px rgba(255,215,0,0.7),
+                0 0 8px rgba(0,0,0,0.9),
+                2px 2px 4px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
+            padding: 12px 20px;
+            background: linear-gradient(90deg, 
+                rgba(15,20,40,0.75), 
+                rgba(25,35,60,0.65), 
+                rgba(15,20,40,0.75));
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: inline-block;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .h-title--sm { font-size: 40px; margin: 40px 0 14px; }
+        .h-subtitle { 
+            color:#ffffff; 
+            font-size:19px; 
+            line-height:1.6; 
+            opacity:.98; 
+            font-weight: 500;
+            padding: 10px 18px;
+            background: rgba(15,20,40,0.6);
+            border-radius: 10px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            text-shadow: 
+                0 0 12px rgba(160,60,255,0.5),
+                1px 1px 3px rgba(0,0,0,0.6);
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .columns-2 { display:grid; gap:24px; grid-template-columns:1fr 1fr; margin: 30px 0 8px; }
+        .columns-2 h3 { color:#ffffff; font-size:28px; font-weight:900; margin-bottom:14px; text-shadow:none; }
+        .columns-2 .tour-box{ 
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius:14px; 
+            padding:18px; 
+            background: rgba(15,20,34,.32); 
+            backdrop-filter: blur(6px) saturate(110%); 
+            -webkit-backdrop-filter: blur(6px) saturate(110%);
+        }
+        .columns-2 h3.accent { text-shadow: 0 0 18px rgba(160,60,255,.75), 0 0 32px rgba(255,215,0,.45); }
+        .list-bullets { list-style: disc; padding-left: 22px; color:#ffffff; }
+        .list-bullets li { margin: 6px 0; line-height:1.5; }
+
+        .divider { height:1px; background: linear-gradient(90deg, rgba(255,255,255,.0), rgba(255,255,255,.6), rgba(255,255,255,.0)); margin: 40px 0; border:0; }
+
+        .grid-categories { 
+            display: grid; 
+            gap: 32px; 
+            grid-template-columns: repeat(2, minmax(240px,1fr));
+            margin-top: 32px;
+        }
+        
+        .grid-categories > div {
+            position: relative;
+            text-align: center;
+            padding: 0;
+        }
+        
+        .grid-categories h4 { 
+            font-size: 28px; 
+            font-weight: 900; 
+            margin-bottom: 12px; 
+            color: #ffffff;
+            background: linear-gradient(135deg, #ffffff, #a0c4ff, #ffffff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: categoryShimmer 4s ease-in-out infinite;
+            text-shadow: none;
+            letter-spacing: 0.5px;
+        }
+        
+        @keyframes categoryShimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        /* Разные цвета для каждой категории */
+        .grid-categories > div:nth-child(1) h4 {
+            background: linear-gradient(135deg, #ffd700, #ffb347, #ffd700);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6));
+        }
+        
+        .grid-categories > div:nth-child(2) h4 {
+            background: linear-gradient(135deg, #a03cff, #e066ff, #a03cff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            filter: drop-shadow(0 0 12px rgba(160, 60, 255, 0.6));
+        }
+        
+        .grid-categories > div:nth-child(3) h4 {
+            background: linear-gradient(135deg, #00dcff, #7ee8fa, #00dcff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            filter: drop-shadow(0 0 12px rgba(0, 220, 255, 0.6));
+        }
+        
+        .grid-categories > div:nth-child(4) h4 {
+            background: linear-gradient(135deg, #ff6b9d, #ffa8c5, #ff6b9d);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            filter: drop-shadow(0 0 12px rgba(255, 107, 157, 0.6));
+        }
+        
+        .grid-categories p { 
+            font-size: 17px; 
+            line-height: 1.6; 
+            color: #ffffff; 
+            opacity: .92;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        /* Стили для секции лиг и материалов */
+        .section-header-styled {
+            font-size: 32px;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 24px;
+            text-shadow: 
+                0 0 20px rgba(160,60,255,0.9),
+                0 0 40px rgba(255,215,0,0.6);
+            letter-spacing: 0.5px;
+        }
+
+        .league-item {
+            margin-bottom: 28px;
+        }
+
+        .league-title {
+            font-size: 22px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .league-title::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            font-size: 20px;
+        }
+
+        .league-upper {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 12px rgba(255,215,0,0.7));
+        }
+
+        .league-upper::before {
+            color: #ffd700;
+            filter: drop-shadow(0 0 8px rgba(255,215,0,0.8));
+        }
+
+        .league-lower {
+            background: linear-gradient(135deg, #a03cff, #c77dff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 12px rgba(160,60,255,0.7));
+        }
+
+        .league-lower::before {
+            color: #a03cff;
+            filter: drop-shadow(0 0 8px rgba(160,60,255,0.8));
+        }
+
+        .league-desc {
+            color: #ffffff;
+            font-size: 17px;
+            line-height: 1.6;
+            opacity: 0.92;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        .materials-list {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 20px;
+        }
+
+        .materials-list li {
+            margin: 16px 0;
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .materials-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            font-size: 20px;
+            color: #ffd700;
+            filter: drop-shadow(0 0 6px rgba(255,215,0,0.6));
+            transition: transform 0.3s ease;
+        }
+
+        .materials-list li:hover::before {
+            transform: translateX(4px);
+        }
+
+        .material-link {
+            color: #ffd700;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 8px rgba(255,215,0,0.4);
+        }
+
+        .material-link:hover {
+            color: #ffed4e;
+            border-bottom: 2px solid #ffd700;
+            text-shadow: 0 0 12px rgba(255,215,0,0.7);
+        }
+
+        @media screen and (max-width: 768px) {
+            .h-title { font-size: 32px; margin: 38px 0 10px; }
+            .columns-2 { grid-template-columns: 1fr; }
+            .grid-categories { grid-template-columns: 1fr; }
+            .card-neo { min-height: 150px; }
+            .main-logo { max-width: 300px; }
+            .title { font-size: 48px; }
+            .subtitle { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Космический контейнер -->
+    <div class="cosmic-container">
+        <!-- Космический фон -->
+        <div class="space-background"></div>
+        
+        <!-- Млечный путь -->
+        <div class="milky-way"></div>
+
+        <!-- Статичные звёзды -->
+        <div class="stars-layer" id="staticStars"></div>
+
+        <!-- Летящие звёзды -->
+        <div class="stars-layer" id="flyingStars"></div>
+
+        <!-- Созвездия -->
+        <div id="constellations"></div>
+
+        <!-- Туманности -->
+        <div id="nebulas"></div>
+    </div>
+
+    <!-- ГЕРОЙ -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="logo-wrapper">
+                <a class="logo-link" href="https://skytournament.com" target="_blank" rel="noopener">
+                    <img src="img/new_logo.png"
+                         alt="Skytournament" 
+                         class="main-logo"
+                         id="mainLogo">
+                </a>
+            </div>
+            
+            <h1 class="title">Skytournament</h1>
+            <p class="subtitle">Олимпиада по наблюдательной астрономии</p>
+            
+            <a class="tg-btn" href="https://t.me/+jCiFrZLBcQlmODIy" target="_blank" rel="noopener">
+                <svg class="tg-ic" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M22 3.24c.29-.12.6-.18.93-.18.67 0 1.07.33.89 1.11l-3.27 15.42c-.2.88-.66 1.1-1.34.69l-6.03-4.45-2.91 2.8c-.32.31-.59.57-1.21.57l.43-6.14L19.9 5.2c.49-.31-.11-.49-.76-.18L6.65 10.73 1.2 9c-.88-.28-.89-.88.19-1.31L22 3.24z"/>
+                </svg>
+                <span class="tg-label">Telegram-канал</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
+    <main class="page">
+
+        <!-- 4 карточки -->
+        <section class="grid-4">
+            <article class="card-neo">
+                <span class="corner c1"></span>
+                <span class="corner c2"></span>
+                <span class="corner c3"></span>
+                <span class="corner c4"></span>
+                <a class="card-link" href="https://skytournament.com/register" target="_blank" rel="noopener" aria-label="Регистрация">
+                    <div class="title">Регистрация</div>
+                </a>
+            </article>
+
+            <article class="card-neo">
+                <span class="corner c1"></span>
+                <span class="corner c2"></span>
+                <span class="corner c3"></span>
+                <span class="corner c4"></span>
+                <div class="title">Распределительный тур</div>
+                <div class="date">До 4 ноября 23:59</div>
+            </article>
+
+            <article class="card-neo">
+                <span class="corner c1"></span>
+                <span class="corner c2"></span>
+                <span class="corner c3"></span>
+                <span class="corner c4"></span>
+                <div class="title">Основной тур</div>
+                <div class="date">14–16 ноября 2025</div>
+            </article>
+
+            <article class="card-neo">
+                <span class="corner c1"></span>
+                <span class="corner c2"></span>
+                <span class="corner c3"></span>
+                <span class="corner c4"></span>
+                <a class="card-link" href="https://skytournament.com/archive" target="_blank" rel="noopener" aria-label="Задания прошлых олимпиад">
+                    <div class="title">Задания прошлых олимпиад</div>
+                </a>
+            </article>
+        </section>
+
+        <!-- Clean content after cards -->
+        <section>
+            <h2 class="h-title">SkyTournament</h2>
+            <p class="h-subtitle">Мы делаем наблюдательную астрономию ближе: понятные задания, честные туры и вдохновляющий опыт для ребят разного уровня подготовки.</p>
+        </section>
+
+        <section class="columns-2">
+            <div class="tour-box">
+                <h3 class="accent">Распределительный тур</h3>
+                <ul class="list-bullets">
+                    <li>Короткий формат — около 10 минут</li>
+                    <li>Определяет подходящую лигу по уровню</li>
+                    <li>Не влияет на финальный рейтинг</li>
+                    <li>Прохождение в удобное время в период тура</li>
+                </ul>
+            </div>
+            <div class="tour-box">
+                <h3 class="accent">Основной тур</h3>
+                <ul class="list-bullets">
+                    <li>Длительность — 2 часа</li>
+                    <li>Два уровня сложности: верхняя и нижняя лиги</li>
+                    <li>Разные варианты для каждой лиги</li>
+                    <li>Честные и прозрачные критерии оценивания</li>
+                </ul>
+            </div>
+        </section>
+
+        <hr class="divider" />
+
+        <section>
+            <h2 class="h-title" style="margin-top: 0;">Категории заданий</h2>
+            <div class="grid-categories">
+                <div>
+                    <h4>Объекты</h4>
+                    <p>Тела Солнечной системы, туманности, объекты глубокого космоса.</p>
+                </div>
+                <div>
+                    <h4>Созвездия</h4>
+                    <p>Знание неба, астеризмов и названий звёзд.</p>
+                </div>
+                <div>
+                    <h4>Кругозор</h4>
+                    <p>Факты, формулы и астрономические события.</p>
+                </div>
+                <div>
+                    <h4>Скайчарты</h4>
+                    <p>Расположение звёзд и созвездий на фото неба.</p>
+                </div>
+            </div>
+        </section>
+
+        <hr class="divider" />
+
+        <section class="columns-2" style="margin-top: 40px;">
+            <div>
+                <h3 class="section-header-styled">Лиги</h3>
+                <div class="league-item">
+                    <h4 class="league-title league-upper">Верхняя лига</h4>
+                    <p class="league-desc">Уровень наблюдательных туров олимпиад. Для тех, кто ориентируется на небе и имеет опыт наблюдений.</p>
+                </div>
+                <div class="league-item">
+                    <h4 class="league-title league-lower">Нижняя лига</h4>
+                    <p class="league-desc">Проверяет логическое мышление без требования «знать всё небо». Часть задач — упрощённые версии верхней лиги.</p>
+                </div>
+            </div>
+            <div>
+                <h3 class="section-header-styled">Полезные материалы</h3>
+                <ul class="materials-list">
+                    <li><a href="#" class="material-link">Материал 1</a></li>
+                    <li><a href="#" class="material-link">Материал 2</a></li>
+                    <li><a href="#" class="material-link">Материал 3</a></li>
+                </ul>
+            </div>
+        </section>
+
+        <hr class="divider" />
+
+        <section class="columns-2" style="margin-top: 40px;">
+            <div>
+                <h2 class="h-title h-title--sm" style="margin-top: 0;">О нас</h2>
+                <p class="h-subtitle">Команда Sky Tournament — это группа школьников и студентов, объединённых любовью к астрономии. Мы создаём проекты, которые помогают открыть науку с новой стороны.</p>
+            </div>
+            <div>
+                <h2 class="h-title h-title--sm" style="margin-top: 0;">I Sky Tournament</h2>
+                <p class="h-subtitle">Первый турнир прошёл 21–30 декабря 2024 и собрал 110 участников из 6 стран. Задания и результаты: добавим ссылки позже.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+
+        // СОЗДАНИЕ СТАТИЧНЫХ ЗВЁЗД
+        function createStaticStars() {
+            const container = document.getElementById('staticStars');
+            const totalStatic = 250;
+            
+            for (let i = 0; i < totalStatic; i++) {
+                const star = document.createElement('div');
+                star.className = 'static-star';
+                
+                const sizeRandom = Math.random();
+                let size, opacity;
+                
+                if (sizeRandom < 0.6) {
+                    size = 1 + Math.random() * 1.5;
+                    opacity = 0.3 + Math.random() * 0.3;
+                } else if (sizeRandom < 0.85) {
+                    size = 2 + Math.random() * 1.5;
+                    opacity = 0.5 + Math.random() * 0.3;
+                } else {
+                    size = 3 + Math.random() * 2;
+                    opacity = 0.7 + Math.random() * 0.3;
+                }
+                
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.setProperty('--opacity', opacity);
+                star.style.boxShadow = `0 0 ${size * 2.5}px rgba(255, 255, 255, ${opacity * 0.8})`;
+                
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDuration = (4 + Math.random() * 6) + 's';
+                star.style.animationDelay = Math.random() * 10 + 's';
+                
+                container.appendChild(star);
+            }
+        }
+
+        // СОЗДАНИЕ ЛЕТЯЩИХ ЗВЁЗД
+        function createFlyingStars() {
+            const container = document.getElementById('flyingStars');
+            const totalFlying = 450;
+
+            const reroll = (star) => {
+                const sizeRandom = Math.random();
+                let size, opacity, startScale, endScale;
+                if (sizeRandom < 0.5) {
+                    size = 1.5 + Math.random() * 1.5;
+                    opacity = 0.4 + Math.random() * 0.3;
+                    startScale = 0.5;
+                    endScale = 1.2;
+                } else if (sizeRandom < 0.80) {
+                    size = 2.5 + Math.random() * 2;
+                    opacity = 0.6 + Math.random() * 0.3;
+                    startScale = 0.6;
+                    endScale = 1.5;
+                } else {
+                    size = 4 + Math.random() * 2;
+                    opacity = 0.8 + Math.random() * 0.2;
+                    startScale = 0.7;
+                    endScale = 2;
+                }
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.setProperty('--opacity', opacity);
+                star.style.setProperty('--start-scale', startScale);
+                star.style.setProperty('--end-scale', endScale);
+                star.style.boxShadow = `0 0 ${size * 3}px rgba(255,255,255,${opacity * 0.9})`;
+
+                const angle = Math.random() * Math.PI * 2;
+                const maxDistance = Math.max(window.innerWidth, window.innerHeight) * 2;
+                const startDistance = 50 + Math.random() * 100;
+
+                const startX = centerX + Math.cos(angle) * startDistance;
+                const startY = centerY + Math.sin(angle) * startDistance;
+                const endX = centerX + Math.cos(angle) * maxDistance;
+                const endY = centerY + Math.sin(angle) * maxDistance;
+
+                star.style.left = startX + 'px';
+                star.style.top = startY + 'px';
+                star.style.setProperty('--move-x', (endX - startX) + 'px');
+                star.style.setProperty('--move-y', (endY - startY) + 'px');
+
+                const duration = 40;
+                star.style.animation = `flyStar ${duration}s linear infinite`;
+                star.style.animationDelay = (-Math.random() * duration) + 's';
+            };
+
+            for (let i = 0; i < totalFlying; i++) {
+                const star = document.createElement('div');
+                star.className = 'flying-star';
+                reroll(star);
+                star.addEventListener('animationiteration', () => reroll(star));
+                container.appendChild(star);
+            }
+        }
+
+        // СОЗДАНИЕ ТУСКЛОЙ КОМЕТЫ
+        function createMinuteComet() {
+            const comet = document.createElement('div');
+            comet.className = 'minute-comet';
+            
+            const startX = window.innerWidth + 100;
+            const startY = -100;
+            const endX = -200;
+            const endY = window.innerHeight + 200;
+            
+            comet.style.left = startX + 'px';
+            comet.style.top = startY + 'px';
+            comet.style.setProperty('--comet-start-x', '0px');
+            comet.style.setProperty('--comet-start-y', '0px');
+            comet.style.setProperty('--comet-end-x', (endX - startX) + 'px');
+            comet.style.setProperty('--comet-end-y', (endY - startY) + 'px');
+            
+            comet.style.animation = 'cometFly 2.5s ease-out forwards';
+            
+            document.body.appendChild(comet);
+            
+            setTimeout(() => comet.remove(), 2500);
+        }
+
+        // СОЗДАНИЕ БОЛЬШОЙ ЯРКОЙ КОМЕТЫ
+        function createBigComet(startX, startY) {
+            const comet = document.createElement('div');
+            comet.className = 'big-comet';
+            
+            const endX = -400;
+            const endY = window.innerHeight + 400;
+            
+            comet.style.left = startX + 'px';
+            comet.style.top = startY + 'px';
+            comet.style.setProperty('--comet-start-x', '0px');
+            comet.style.setProperty('--comet-start-y', '0px');
+            comet.style.setProperty('--comet-end-x', (endX - startX) + 'px');
+            comet.style.setProperty('--comet-end-y', (endY - startY) + 'px');
+            
+            comet.style.animation = 'cometFly 2.5s ease-out forwards';
+            
+            document.body.appendChild(comet);
+            
+            setTimeout(() => comet.remove(), 2500);
+        }
+
+        // СОЗДАНИЕ МАЛЕНЬКОГО МЕТЕОРА
+        function createSmallMeteor() {
+            const meteor = document.createElement('div');
+            meteor.className = 'small-meteor';
+            
+            const side = Math.random() > 0.5 ? 'top' : 'right';
+            let startX, startY;
+            
+            if (side === 'top') {
+                startX = Math.random() * window.innerWidth;
+                startY = -30;
+            } else {
+                startX = window.innerWidth + 30;
+                startY = Math.random() * (window.innerHeight * 0.5);
+            }
+            
+            const endX = startX - (150 + Math.random() * 100);
+            const endY = startY + (150 + Math.random() * 100);
+            
+            meteor.style.left = startX + 'px';
+            meteor.style.top = startY + 'px';
+            meteor.style.setProperty('--meteor-start-x', '0px');
+            meteor.style.setProperty('--meteor-start-y', '0px');
+            meteor.style.setProperty('--meteor-end-x', (endX - startX) + 'px');
+            meteor.style.setProperty('--meteor-end-y', (endY - startY) + 'px');
+            
+            const duration = 0.6 + Math.random() * 0.4;
+            meteor.style.animation = `meteorFly ${duration}s linear forwards`;
+            
+            document.body.appendChild(meteor);
+            
+            setTimeout(() => meteor.remove(), duration * 1000);
+        }
+
+        // СЛУЧАЙНЫЕ МЕТЕОРЫ
+        function startRandomMeteors() {
+            setInterval(() => {
+                if (Math.random() > 0.92) {
+                    createSmallMeteor();
+                }
+            }, 2000);
+        }
+
+        // СОЗВЕЗДИЯ
+        function createConstellation(container, name, stars, leftPercent, topPercent, starSizes, connections) {
+            const wrap = document.createElement('div');
+            wrap.className = 'constellation';
+            wrap.style.left = leftPercent + '%';
+            wrap.style.top = topPercent + '%';
+
+            const pad = 12;
+            let minX = +Infinity,
+                minY = +Infinity,
+                maxX = -Infinity,
+                maxY = -Infinity;
+            for (const p of stars) {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            }
+            const width = (maxX - minX) + pad * 2;
+            const height = (maxY - minY) + pad * 2;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.classList.add('constellation-svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.setAttribute('viewBox', `${minX - pad} ${minY - pad} ${width} ${height}`);
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const flt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+            flt.setAttribute('id', 'starGlow');
+            flt.setAttribute('x', '-50%');
+            flt.setAttribute('y', '-50%');
+            flt.setAttribute('width', '200%');
+            flt.setAttribute('height', '200%');
+            const feGauss = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+            feGauss.setAttribute('stdDeviation', '1.2');
+            feGauss.setAttribute('result', 'blur');
+            const feMerge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+            const n1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+            n1.setAttribute('in', 'blur');
+            const n2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+            n2.setAttribute('in', 'SourceGraphic');
+            feMerge.appendChild(n1);
+            feMerge.appendChild(n2);
+            flt.appendChild(feGauss);
+            flt.appendChild(feMerge);
+            defs.appendChild(flt);
+            svg.appendChild(defs);
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let d = '';
+            for (const [a, b] of connections) {
+                const A = stars[a],
+                    B = stars[b];
+                d += `M ${A.x} ${A.y} L ${B.x} ${B.y} `;
+            }
+            path.setAttribute('d', d.trim());
+            path.setAttribute('class', 'constellation-path');
+            svg.appendChild(path);
+
+            for (let i = 0; i < stars.length; i++) {
+                const p = stars[i];
+                const r = Math.max(1.2, (starSizes?.[i] ?? 4) / 2);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', p.x);
+                circle.setAttribute('cy', p.y);
+                circle.setAttribute('r', r);
+                circle.setAttribute('class', 'constellation-star-circle');
+                svg.appendChild(circle);
+            }
+
+            wrap.appendChild(svg);
+            container.appendChild(wrap);
+        }
+
+        // ТУМАННОСТИ
+        function createNebulas() {
+            const container = document.getElementById('nebulas');
+            const nebulaTypes = ['nebula-purple', 'nebula-blue'];
+
+            for (let i = 0; i < 5; i++) {
+                const nebula = document.createElement('div');
+                nebula.className = `nebula ${nebulaTypes[i % 2]}`;
+                nebula.style.width = (350 + Math.random() * 450) + 'px';
+                nebula.style.height = (350 + Math.random() * 450) + 'px';
+                nebula.style.left = (Math.random() * 100) + '%';
+                nebula.style.top = (Math.random() * 100) + '%';
+                nebula.style.animationDelay = (i * 3) + 's';
+                nebula.style.animationDuration = (18 + Math.random() * 10) + 's';
+                container.appendChild(nebula);
+            }
+        }
+
+        // ТАЙМЕР ТУСКЛОЙ КОМЕТЫ
+        function startCometTimer() {
+            // disabled
+        }
+
+        // КЛИК ПО ФОНУ
+        // disabled comet on click
+        // document.addEventListener('click', (e) => {
+        //     if (e.target.id !== 'mainLogo' && !e.target.closest('.card-neo')) {
+        //         createBigComet(e.clientX, e.clientY);
+        //     }
+        // });
+
+        // Shockwave от логотипа
+        function spawnShockwaveFrom(el) {
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+
+            const w = document.createElement('div');
+            w.className = 'shockwave';
+            w.style.left = x + 'px';
+            w.style.top = y + 'px';
+            document.body.appendChild(w);
+            setTimeout(() => w.remove(), 1000);
+        }
+
+        function pulseLogo(el) {
+            el.classList.add('logo-animate');
+            setTimeout(() => el.classList.remove('logo-animate'), 650);
+        }
+
+        document.getElementById('mainLogo').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const logo = e.currentTarget;
+            pulseLogo(logo);
+            spawnShockwaveFrom(logo);
+        });
+
+        // 3D эффекты убраны для минималистичного дизайна
+
+        function createConstellations() {
+            const container = document.getElementById('constellations');
+
+            // ОРИГИНАЛЬНЫЕ ПОЗИЦИИ - Скорпион и Близнецы остаются как были
+            createConstellation(container, 'Скорпион', [{
+                x: 108.55,
+                y: -242.84
+            }, {
+                x: 125.97,
+                y: -223.08
+            }, {
+                x: 137.41,
+                y: -195.91
+            }, {
+                x: 85.54,
+                y: -173.55
+            }, {
+                x: 78.91,
+                y: -158.73
+            }, {
+                x: 73.19,
+                y: -101.92
+            }, {
+                x: 82.16,
+                y: -81.12
+            }, {
+                x: 94.51,
+                y: -36.01
+            }, {
+                x: 72.28,
+                y: -17.03
+            }, {
+                x: 38.48,
+                y: -0.65
+            }, {
+                x: 7.93,
+                y: -13.00
+            }, {
+                x: 10.53,
+                y: -26.26
+            }, {
+                x: 19.63,
+                y: -49.14
+            }], 13, 13, [4, 4, 4, 10, 4, 4, 4, 4, 4, 4, 7, 4, 8], [
+                [0, 3],
+                [1, 3],
+                [2, 3],
+                [3, 4],
+                [4, 5],
+                [5, 6],
+                [6, 7],
+                [7, 8],
+                [8, 9],
+                [9, 10],
+                [10, 11],
+                [11, 12]
+            ]);
+
+            createConstellation(container, 'Близнецы', [{
+                x: 93.34,
+                y: -268.32
+            }, {
+                x: 112.32,
+                y: -248.69
+            }, {
+                x: 142.87,
+                y: -176.54
+            }, {
+                x: 131.04,
+                y: -106.99
+            }, {
+                x: 218.66,
+                y: -49.27
+            }, {
+                x: 247.39,
+                y: -89.18
+            }, {
+                x: 79.30,
+                y: -219.31
+            }, {
+                x: 131.69,
+                y: -308.23
+            }, {
+                x: 187.20,
+                y: -274.82
+            }, {
+                x: 249.60,
+                y: -199.03
+            }, {
+                x: 286.39,
+                y: -123.50
+            }, {
+                x: 302.90,
+                y: -158.86
+            }, {
+                x: 324.48,
+                y: -155.09
+            }, {
+                x: 339.43,
+                y: -158.86
+            }, {
+                x: 242.71,
+                y: -308.23
+            }], 75, 12, [7, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [6, 1],
+                [2, 5],
+                [1, 8],
+                [7, 8],
+                [8, 9],
+                [9, 10],
+                [9, 11],
+                [11, 12],
+                [12, 13],
+                [8, 14]
+            ]);
+
+            // НОВЫЕ ПОЗИЦИИ - Остальные созвездия ниже
+            
+            // Средняя часть страницы (40-50%)
+            createConstellation(container, 'Орион', [{
+                x: -189.06,
+                y: 190.37
+            }, {
+                x: -110.63,
+                y: 197.80
+            }, {
+                x: -133.52,
+                y: 124.24
+            }, {
+                x: -144.72,
+                y: 131.05
+            }, {
+                x: -155.94,
+                y: 132.52
+            }, {
+                x: -169.09,
+                y: 52.13
+            }, {
+                x: -117.94,
+                y: 42.89
+            }, {
+                x: -106.73,
+                y: 75.99
+            }, {
+                x: -24.90,
+                y: 91.10
+            }, {
+                x: -42.91,
+                y: 123.76
+            }, {
+                x: -57.54,
+                y: 127.63
+            }, {
+                x: -22.46,
+                y: 73.09
+            }, {
+                x: -31.20,
+                y: 62.40
+            }, {
+                x: -171.38,
+                y: -1.77
+            }, {
+                x: -187.20,
+                y: 0.00
+            }, {
+                x: -149.94,
+                y: -40.81
+            }, {
+                x: -180.57,
+                y: -40.81
+            }], 12, 42, [2.1, 0.1, 2.2, 1.7, 1.7, 0.6, 3.3, 1.6, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 0],
+                [4, 5],
+                [5, 6],
+                [6, 7],
+                [7, 2],
+                [7, 8],
+                [8, 9],
+                [9, 10],
+                [8, 11],
+                [11, 12],
+                [5, 14],
+                [14, 16],
+                [5, 13],
+                [13, 15],
+                [16, 15]
+            ]);
+
+            createConstellation(container, 'Лебедь', [{
+                x: 104.00,
+                y: -182.00
+            }, {
+                x: 124.15,
+                y: -133.64
+            }, {
+                x: 200.07,
+                y: -17.55
+            }, {
+                x: 17.16,
+                y: -76.31
+            }, {
+                x: 71.50,
+                y: -93.47
+            }, {
+                x: 189.28,
+                y: -167.70
+            }, {
+                x: 214.24,
+                y: -223.86
+            }, {
+                x: 232.44,
+                y: -238.94
+            }], 82, 48, [10, 7, 4, 4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [3, 4],
+                [4, 1],
+                [1, 5],
+                [5, 6],
+                [6, 7]
+            ]);
+
+            // Средне-нижняя часть (55-65%)
+            createConstellation(container, 'Дельфин', [{
+                x: 39.6,
+                y: -89.4
+            }, {
+                x: 38.9,
+                y: -74.0
+            }, {
+                x: 50.0,
+                y: -60.4
+            }, {
+                x: 37.2,
+                y: -22.6
+            }, {
+                x: 54.4,
+                y: -76.4
+            }], 8, 58, [4, 4, 4, 4, 4], [
+                [4, 0],
+                [0, 1],
+                [1, 2],
+                [2, 4],
+                [2, 3]
+            ]);
+
+            createConstellation(container, 'Лев', [{
+                x: 15.34,
+                y: -34.45
+            }, {
+                x: 99.45,
+                y: -95.94
+            }, {
+                x: 219.31,
+                y: -94.38
+            }, {
+                x: 222.82,
+                y: -134.16
+            }, {
+                x: 271.18,
+                y: -162.89
+            }, {
+                x: 295.36,
+                y: -139.23
+            }, {
+                x: 249.99,
+                y: -59.15
+            }, {
+                x: 255.06,
+                y: -7.75
+            }, {
+                x: 99.84,
+                y: -38.97
+            }], 70, 62, [4, 4, 4, 4, 4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 5],
+                [2, 6],
+                [6, 7],
+                [7, 8],
+                [8, 0],
+                [1, 8]
+            ]);
+
+            createConstellation(container, 'Кассиопея', [{
+                x: 32.37,
+                y: -133.12
+            }, {
+                x: 52.39,
+                y: -79.04
+            }, {
+                x: 92.17,
+                y: -70.20
+            }, {
+                x: 108.03,
+                y: -19.89
+            }, {
+                x: 161.98,
+                y: -43.81
+            }], 88, 60, [4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4]
+            ]);
+
+            // Нижняя часть (70-80%)
+            createConstellation(container, 'Центавр', [{
+                x: 161.72,
+                y: -52.39
+            }, {
+                x: 195.39,
+                y: -75.53
+            }, {
+                x: 198.77,
+                y: -145.08
+            }, {
+                x: 158.34,
+                y: -184.99
+            }, {
+                x: 152.49,
+                y: -230.62
+            }, {
+                x: 171.60,
+                y: -267.80
+            }, {
+                x: 185.51,
+                y: -302.64
+            }, {
+                x: 149.50,
+                y: -239.20
+            }, {
+                x: 79.56,
+                y: -197.60
+            }, {
+                x: 41.86,
+                y: -177.45
+            }, {
+                x: 100.99,
+                y: -270.79
+            }, {
+                x: 270.79,
+                y: -202.28
+            }, {
+                x: 292.76,
+                y: -189.54
+            }, {
+                x: 317.00,
+                y: -186.16
+            }, {
+                x: 382.07,
+                y: -149.63
+            }, {
+                x: 350.61,
+                y: -71.50
+            }], 5, 72, [10, 10, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 5],
+                [5, 6],
+                [7, 10],
+                [7, 8],
+                [8, 9],
+                [3, 11],
+                [11, 12],
+                [12, 13],
+                [13, 14],
+                [14, 15]
+            ]);
+
+            createConstellation(container, 'Рак', [{
+                x: 55.4,
+                y: -137.7
+            }, {
+                x: 47.3,
+                y: -83.4
+            }, {
+                x: 57.8,
+                y: -63.2
+            }, {
+                x: 133.9,
+                y: -38.0
+            }, {
+                x: 61.2,
+                y: -13.7
+            }, {
+                x: 13.6,
+                y: -125.2
+            }], 78, 75, [4, 4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [2, 4],
+                [1, 5]
+            ]);
+
+            createConstellation(container, 'Лира', [{
+                x: 108.9,
+                y: -108.7
+            }, {
+                x: 84.0,
+                y: -92.9
+            }, {
+                x: 63.9,
+                y: -29.9
+            }, {
+                x: 34.3,
+                y: -22.2
+            }, {
+                x: 54.5,
+                y: -84.3
+            }], 68, 78, [10, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 1]
+            ]);
+
+            // Самая нижняя часть (85-95%)
+            createConstellation(container, 'Стрела', [{
+                x: 26.7,
+                y: -61.1
+            }, {
+                x: 44.8,
+                y: -54.1
+            }, {
+                x: 76.6,
+                y: -43.2
+            }, {
+                x: 97.1,
+                y: -38.1
+            }, {
+                x: 95.0,
+                y: -31.3
+            }], 15, 88, [4, 4, 4, 4, 4], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [2, 4]
+            ]);
+
+            createConstellation(container, 'Эридан', [{
+                x: 90.48,
+                y: -468.13
+            }, {
+                x: 54.21,
+                y: -538.72
+            }, {
+                x: 70.46,
+                y: -568.49
+            }, {
+                x: 99.58,
+                y: -550.55
+            }, {
+                x: 124.67,
+                y: -558.22
+            }, {
+                x: 144.04,
+                y: -546.26
+            }, {
+                x: 171.34,
+                y: -495.69
+            }, {
+                x: 163.28,
+                y: -430.30
+            }, {
+                x: 207.09,
+                y: -440.05
+            }, {
+                x: 227.11,
+                y: -430.43
+            }, {
+                x: 258.18,
+                y: -412.75
+            }, {
+                x: 288.60,
+                y: -384.54
+            }, {
+                x: 256.75,
+                y: -312.52
+            }, {
+                x: 204.10,
+                y: -297.57
+            }, {
+                x: 186.29,
+                y: -331.76
+            }, {
+                x: 167.83,
+                y: -345.80
+            }, {
+                x: 138.06,
+                y: -350.22
+            }, {
+                x: 31.98,
+                y: -345.15
+            }, {
+                x: 35.62,
+                y: -308.75
+            }, {
+                x: 45.76,
+                y: -306.02
+            }, {
+                x: 75.92,
+                y: -264.55
+            }, {
+                x: 70.59,
+                y: -254.54
+            }, {
+                x: 81.25,
+                y: -196.43
+            }, {
+                x: 122.20,
+                y: -189.67
+            }, {
+                x: 143.52,
+                y: -174.59
+            }, {
+                x: 128.57,
+                y: -157.69
+            }, {
+                x: 112.58,
+                y: -115.57
+            }, {
+                x: 99.58,
+                y: -88.53
+            }, {
+                x: 115.57,
+                y: -62.53
+            }, {
+                x: 92.17,
+                y: -16.51
+            }], 75, 90, [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 10], [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 5],
+                [5, 6],
+                [6, 7],
+                [7, 8],
+                [8, 9],
+                [9, 10],
+                [10, 11],
+                [11, 12],
+                [12, 13],
+                [13, 14],
+                [14, 15],
+                [15, 16],
+                [16, 17],
+                [17, 18],
+                [18, 19],
+                [19, 20],
+                [20, 21],
+                [21, 22],
+                [22, 23],
+                [23, 24],
+                [24, 25],
+                [25, 26],
+                [26, 27],
+                [27, 28],
+                [28, 29]
+            ]);
+        }
+
+        // ИНИЦИАЛИЗАЦИЯ
+        createStaticStars();
+        createFlyingStars();
+        createConstellations();
+        createNebulas();
+        // startRandomMeteors(); // disabled
+        // startCometTimer();    // disabled
+
+        // ПЕРВАЯ ТУСКЛАЯ КОМЕТА при загрузке (disabled)
+        // setTimeout(() => { createMinuteComet(); }, 500);
+
+        // Обновление высоты космического контейнера при изменении размера страницы
+        function updateCosmicHeight() {
+            const cosmicContainer = document.querySelector('.cosmic-container');
+            const bodyHeight = document.body.scrollHeight;
+            cosmicContainer.style.height = bodyHeight + 'px';
+        }
+
+        // Обновляем высоту при загрузке и изменении размера окна
+        window.addEventListener('load', updateCosmicHeight);
+        window.addEventListener('resize', updateCosmicHeight);
+        
+        // Обновляем высоту с небольшой задержкой для надёжности
+        setTimeout(updateCosmicHeight, 100);
+        setTimeout(updateCosmicHeight, 500);
+
+        // Fade out flying stars after hero section
+        (function(){
+            const flying = document.getElementById('flyingStars');
+            const hero = document.querySelector('.hero-section');
+            if (!flying || !hero) return;
+            const updateOpacity = () => {
+                const heroRect = hero.getBoundingClientRect();
+                const heroBottom = heroRect.bottom + window.scrollY;
+                const y = window.scrollY;
+                const fadeStart = heroBottom * 0.25; // start fading a bit before bottom
+                const fadeEnd = heroBottom * 1.05;   // fully faded slightly after bottom
+                let t = (y - fadeStart) / (fadeEnd - fadeStart);
+                if (isNaN(t)) t = 0;
+                t = Math.min(1, Math.max(0, t));
+                const opacity = 1 - t;
+                flying.style.opacity = opacity.toFixed(3);
+            };
+            updateOpacity();
+            window.addEventListener('scroll', updateOpacity, { passive: true });
+            window.addEventListener('resize', updateOpacity);
+        })();
+    </script>
+
+</body>
+</html>
+
